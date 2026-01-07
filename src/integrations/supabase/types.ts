@@ -555,6 +555,7 @@ export type Database = {
       orders: {
         Row: {
           coupon_code: string | null
+          courier_sent_at: string | null
           created_at: string
           customer_email: string | null
           customer_name: string
@@ -573,6 +574,8 @@ export type Database = {
           shipping_area: string | null
           shipping_city: string
           shipping_postal_code: string | null
+          steadfast_consignment_id: string | null
+          steadfast_status: string | null
           subtotal: number
           total_amount: number
           transaction_id: string | null
@@ -581,6 +584,7 @@ export type Database = {
         }
         Insert: {
           coupon_code?: string | null
+          courier_sent_at?: string | null
           created_at?: string
           customer_email?: string | null
           customer_name: string
@@ -599,6 +603,8 @@ export type Database = {
           shipping_area?: string | null
           shipping_city: string
           shipping_postal_code?: string | null
+          steadfast_consignment_id?: string | null
+          steadfast_status?: string | null
           subtotal: number
           total_amount: number
           transaction_id?: string | null
@@ -607,6 +613,7 @@ export type Database = {
         }
         Update: {
           coupon_code?: string | null
+          courier_sent_at?: string | null
           created_at?: string
           customer_email?: string | null
           customer_name?: string
@@ -625,6 +632,8 @@ export type Database = {
           shipping_area?: string | null
           shipping_city?: string
           shipping_postal_code?: string | null
+          steadfast_consignment_id?: string | null
+          steadfast_status?: string | null
           subtotal?: number
           total_amount?: number
           transaction_id?: string | null

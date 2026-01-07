@@ -4,9 +4,11 @@ import {
   Filter,
   Eye,
   MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
   Plus,
+  Truck,
+  ExternalLink,
+  Loader2,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +24,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -33,10 +36,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOrders, useUpdateOrder } from "@/hooks/useAdminData";
+import { useSendToSteadfast, useSteadfastBalance, useCheckSteadfastStatus } from "@/hooks/useSteadfast";
 import { OrderDialog } from "@/components/admin/dialogs/OrderDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { bn } from "date-fns/locale";
+import { toast } from "sonner";
 
 const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -46,6 +51,9 @@ const AdminOrders = () => {
 
   const { data: orders, isLoading } = useOrders();
   const updateOrder = useUpdateOrder();
+  const sendToSteadfast = useSendToSteadfast();
+  const { data: steadfastBalance } = useSteadfastBalance();
+  const checkStatus = useCheckSteadfastStatus();
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; className: string }> = {
@@ -71,6 +79,20 @@ const AdminOrders = () => {
     return <Badge variant={variant}>{label}</Badge>;
   };
 
+  const getSteadfastBadge = (status: string | null) => {
+    if (!status) return null;
+    const config: Record<string, { label: string; className: string }> = {
+      pending: { label: "পেন্ডিং", className: "bg-orange-100 text-orange-700" },
+      in_review: { label: "রিভিউতে", className: "bg-blue-100 text-blue-700" },
+      delivered: { label: "ডেলিভার্ড", className: "bg-green-100 text-green-700" },
+      partial_delivered: { label: "আংশিক", className: "bg-yellow-100 text-yellow-700" },
+      cancelled: { label: "বাতিল", className: "bg-red-100 text-red-700" },
+      hold: { label: "হোল্ড", className: "bg-gray-100 text-gray-700" },
+    };
+    const { label, className } = config[status] || { label: status, className: "bg-gray-100 text-gray-700" };
+    return <Badge className={className}>{label}</Badge>;
+  };
+
   const filteredOrders = orders?.filter((order: any) => {
     if (statusFilter !== "all" && order.order_status !== statusFilter) return false;
     if (searchQuery) {
@@ -93,6 +115,29 @@ const AdminOrders = () => {
     await updateOrder.mutateAsync({ id, order_status });
   };
 
+  const handleSendToSteadfast = async (order: any) => {
+    if (order.steadfast_consignment_id) {
+      toast.error("এই অর্ডার ইতিমধ্যে স্টেডফাস্ট এ পাঠানো হয়েছে");
+      return;
+    }
+    await sendToSteadfast.mutateAsync(order);
+  };
+
+  const handleTrackOrder = async (order: any) => {
+    if (!order.steadfast_consignment_id) {
+      toast.error("ট্র্যাকিং তথ্য পাওয়া যায়নি");
+      return;
+    }
+    
+    const result = await checkStatus.mutateAsync({ 
+      consignmentId: order.steadfast_consignment_id 
+    });
+    
+    if (result.success) {
+      toast.info(`ডেলিভারি স্ট্যাটাস: ${result.delivery_status}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -109,10 +154,18 @@ const AdminOrders = () => {
           <h1 className="text-2xl font-bold text-foreground">অর্ডার ম্যানেজমেন্ট</h1>
           <p className="text-muted-foreground">সকল অর্ডার দেখুন এবং পরিচালনা করুন ({orders?.length || 0}টি)</p>
         </div>
-        <Button className="gap-2" onClick={() => { setEditOrder(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4" />
-          নতুন অর্ডার
-        </Button>
+        <div className="flex items-center gap-3">
+          {steadfastBalance !== undefined && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">৳{steadfastBalance.toLocaleString()}</span>
+            </div>
+          )}
+          <Button className="gap-2" onClick={() => { setEditOrder(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4" />
+            নতুন অর্ডার
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -153,6 +206,7 @@ const AdminOrders = () => {
               <TableHead className="text-center">পণ্য</TableHead>
               <TableHead className="text-right">মোট</TableHead>
               <TableHead className="text-center">স্ট্যাটাস</TableHead>
+              <TableHead className="text-center">কুরিয়ার</TableHead>
               <TableHead className="text-center">পেমেন্ট</TableHead>
               <TableHead className="text-center">তারিখ</TableHead>
               <TableHead className="text-right">অ্যাকশন</TableHead>
@@ -161,7 +215,7 @@ const AdminOrders = () => {
           <TableBody>
             {filteredOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   কোনো অর্ডার পাওয়া যায়নি
                 </TableCell>
               </TableRow>
@@ -183,6 +237,24 @@ const AdminOrders = () => {
                     {getStatusBadge(order.order_status)}
                   </TableCell>
                   <TableCell className="text-center">
+                    {order.steadfast_consignment_id ? (
+                      <div className="flex flex-col items-center gap-1">
+                        {getSteadfastBadge(order.steadfast_status)}
+                        <a
+                          href={`https://portal.steadfast.com.bd/consignment/tracking/${order.steadfast_consignment_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          {order.steadfast_consignment_id}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
                     {getPaymentBadge(order.payment_status)}
                   </TableCell>
                   <TableCell className="text-center text-sm">
@@ -200,9 +272,34 @@ const AdminOrders = () => {
                           <Eye className="h-4 w-4 mr-2" />
                           বিস্তারিত / এডিট
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleStatusChange(order.id, "confirmed")}>
                           কনফার্ম করুন
                         </DropdownMenuItem>
+                        
+                        {/* Steadfast Options */}
+                        {!order.steadfast_consignment_id && (order.order_status === "confirmed" || order.order_status === "processing") && (
+                          <DropdownMenuItem 
+                            onClick={() => handleSendToSteadfast(order)}
+                            disabled={sendToSteadfast.isPending}
+                          >
+                            {sendToSteadfast.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Truck className="h-4 w-4 mr-2" />
+                            )}
+                            স্টেডফাস্ট এ পাঠান
+                          </DropdownMenuItem>
+                        )}
+                        
+                        {order.steadfast_consignment_id && (
+                          <DropdownMenuItem onClick={() => handleTrackOrder(order)}>
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            ট্র্যাক করুন
+                          </DropdownMenuItem>
+                        )}
+                        
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleStatusChange(order.id, "shipped")}>
                           শিপ করুন
                         </DropdownMenuItem>
