@@ -1,7 +1,7 @@
-// Facebook Pixel Tracking - Consolidated Tracking File
-// Pixel ID: 1392740588528295
+// Facebook Pixel Tracking
+// Pixel ID: 910751078293429
 
-import { ensureMetaPixel, FB_PIXEL_ID } from './metaPixel';
+const FB_PIXEL_ID = '910751078293429';
 
 // Debug mode - set to false in production
 const DEBUG = true;
@@ -36,10 +36,9 @@ const normalizePhone = (phone: string): string => {
 };
 
 // ==========================================
-// EVENT 1: PageView
+// EVENT 1: PageView (handled by index.html)
 // ==========================================
 export const trackPageView = () => {
-  ensureMetaPixel();
   if (typeof window !== 'undefined' && (window as any).fbq) {
     (window as any).fbq('track', 'PageView');
     log('PageView tracked');
@@ -56,8 +55,7 @@ export const trackViewContent = (data: {
   value: number;
   currency?: string;
 }) => {
-  ensureMetaPixel();
-  if ((window as any).fbq) {
+  if (typeof window !== 'undefined' && (window as any).fbq) {
     const eventData = {
       content_name: data.content_name,
       content_ids: data.content_ids,
@@ -80,8 +78,7 @@ export const trackAddToCart = (data: {
   value: number;
   currency?: string;
 }) => {
-  ensureMetaPixel();
-  if ((window as any).fbq) {
+  if (typeof window !== 'undefined' && (window as any).fbq) {
     const eventData = {
       content_name: data.content_name,
       content_ids: data.content_ids,
@@ -103,7 +100,6 @@ export interface PurchaseData {
   num_items: number;
   value: number;
   currency?: string;
-  // Customer data for Advanced Matching (will be hashed)
   customer_name?: string;
   customer_phone?: string;
   customer_email?: string;
@@ -112,10 +108,8 @@ export interface PurchaseData {
 }
 
 export const trackPurchase = async (data: PurchaseData) => {
-  ensureMetaPixel();
-  if (!(window as any).fbq) return;
+  if (typeof window === 'undefined' || !(window as any).fbq) return;
 
-  // Build the base purchase event data
   const eventData: any = {
     content_ids: data.content_ids,
     contents: data.contents,
@@ -170,5 +164,3 @@ export const trackPurchase = async (data: PurchaseData) => {
   (window as any).fbq('track', 'Purchase', eventData);
   log('Purchase', { eventData, userData: Object.keys(userData) });
 };
-
-export { FB_PIXEL_ID };
